@@ -18,6 +18,11 @@ def transcribe_audio_with_speaker_diarization(audio_path, output_file):
     )
 
     config = speech.RecognitionConfig(
+        # must use a compatible audio file
+        # encoding: LINEAR16(PCM)
+        # sample rate: 8000Hz
+        # can use FFmpeg to convert audio files to required formats
+        # example: ffmpeg -i input.wav -ar 8000 -ac 1 output.wav
         encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
         sample_rate_hertz=8000,
         language_code="en-US",
@@ -51,13 +56,12 @@ def transcribe_audio_with_speaker_diarization(audio_path, output_file):
     with open(output_file, "w") as file:
         file.write(formatted_conversation)
 
-    # Printing out the output:
-    for word_info in words_info:
-        print(f"word: '{word_info.word}', speaker_tag: {word_info.speaker_tag}")
-
     print("uploaded transcript successfully to {output_file}")
     
     return result
+
+    # for word_info in words_info:
+    #     print(f"word: '{word_info.word}', speaker_tag: {word_info.speaker_tag}")
 
 if __name__ == '__main__':
     audio_path = "resources/commercial_mono.wav"
