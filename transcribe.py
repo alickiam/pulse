@@ -1,12 +1,13 @@
+import os
 from google.cloud import speech_v1p1beta1 as speech
 
 def transcribe_audio_with_speaker_diarization(audio_path, output_file):
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "./se101finalproject-1a2f5a3e9286.json"
 
     client = speech.SpeechClient()
+    print("Google Cloud credentials loaded successfully.")
 
-    speech_file = audio_path
-
-    with open(speech_file, "rb") as audio_file:
+    with open(audio_path, "rb") as audio_file:
         content = audio_file.read()
 
     audio = speech.RecognitionAudio(content=content)
@@ -18,13 +19,7 @@ def transcribe_audio_with_speaker_diarization(audio_path, output_file):
     )
 
     config = speech.RecognitionConfig(
-        # must use a compatible audio file
-        # encoding: LINEAR16(PCM)
-        # sample rate: 8000Hz
-        # can use FFmpeg to convert audio files to required formats
-        # example: ffmpeg -i input.wav -ar 8000 -ac 1 output.wav
         encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-        sample_rate_hertz=8000,
         language_code="en-US",
         diarization_config=diarization_config,
     )
@@ -32,38 +27,48 @@ def transcribe_audio_with_speaker_diarization(audio_path, output_file):
     print("Waiting for operation to complete...")
     response = client.recognize(config=config, audio=audio)
 
-    # The transcript within each result is separate and sequential per result.
-    # However, the words list within an alternative includes all the words
-    # from all the results thus far. Thus, to get all the words with speaker
-    # tags, you only have to take the words list from the last result:
     result = response.results[-1]
     words_info = result.alternatives[0].words
 
-    # group words by speaker tag
-    conversation = {}
+    print("Starting to organize the transcribed text file.")
+    
+    # Prepare a list of tuples (start_time, speaker_tag, word)
+    conversation = []
     for word_info in words_info:
+        start_time = word_info.start_time.total_seconds()
         speaker_tag = word_info.speaker_tag
-        if speaker_tag not in conversation:
-            conversation[speaker_tag] = []
-        conversation[speaker_tag].append(word_info.word)
+        word = word_info.word
+        conversation.append((start_time, speaker_tag, word))
 
+    # Sorting the conversation by start time
+    conversation.sort(key=lambda x: x[0])
+
+    # Group the conversation by speaker
     formatted_conversation = ""
-    for speaker_tag, words in conversation.items():
-        speaker_label = f"Person {speaker_tag}"
-        transcript = " ".join(words)
-        formatted_conversation += f"{speaker_label}: {transcript} \n\n"
+    current_speaker = None
+    speaker_text = []
 
+    for _, speaker_tag, word in conversation:
+        if speaker_tag != current_speaker:
+            # If switching to a new speaker, append the previous speaker's text
+            if current_speaker is not None:
+                formatted_conversation += f"Person {current_speaker}: {' '.join(speaker_text)}\n"
+            current_speaker = speaker_tag
+            speaker_text = []
+        speaker_text.append(word)
+
+    # Append the last speaker's text
+    if current_speaker is not None:
+        formatted_conversation += f"Person {current_speaker}: {' '.join(speaker_text)}\n"
+
+    # Write the formatted conversation to the output file
     with open(output_file, "w") as file:
         file.write(formatted_conversation)
 
-    print("uploaded transcript successfully to {output_file}")
-    
+    print(f"Uploaded transcript successfully to {output_file}")
     return result
 
-    # for word_info in words_info:
-    #     print(f"word: '{word_info.word}', speaker_tag: {word_info.speaker_tag}")
-
 if __name__ == '__main__':
-    audio_path = "resources/commercial_mono.wav"
+    audio_path = "audio (1).wav"
     output_file = "transcribed_conversation.txt"
     result = transcribe_audio_with_speaker_diarization(audio_path, output_file)
