@@ -17,7 +17,7 @@ MAX_INT_EN_1 = 0x02
 MAX_INT_EN_2 = 0x03
 MAX_FIFO_WR_PTR = 0x04
 MAX_OVF_COUNTER = 0x05
-MAX_RD_PTR = 0x06
+MAX_FIFO_RD_PTR = 0x06
 MAX_FIFO_DATA = 0x07
 MAX_FIFO_CONF = 0x08
 MAX_MODE_CONF = 0x09
@@ -30,12 +30,21 @@ MAX_TEMP_EN = 0x21
 MAX_PART_ID = 0xff
 
 # Heart rate sensor constants
+MAX_FIFO_ROLLOVER_EN_F = 1 << 4
+MAX_MODE_HR_F = 0b010
+MAX_MODE_SPO2_F = 0b011
+MAX_MODE_MULTI_F = 0b111
+MAX_MODE_RESET_F = 1 << 6
+MAX_MODE_SHDN_F = 1 << 7
 MAX_DIE_TEMP_RDY_F = 1 << 1
 
 class HeartRateManager:
+    NUM_SENSORS = 2
+
     def __init__(self):
         # Initialize GPIO
-        self.pi = pigpio.pi()
+        print("Initializing GPIO...")
+        self.pi = pigpio.pi("pulse.local")
 
         # Open I2C multiplexer on bus 1
         self.tca_handle = self.pi.i2c_open(1, TCAADDR)
@@ -45,19 +54,31 @@ class HeartRateManager:
         self.current_sensor_num = -1
 
         # Ensure connection to sensors exists
-        for i in range(2):
+        for i in range(self.NUM_SENSORS):
             print(f"Setting up sensor {i}...", end="")
             self.select_sensor(i)
             assert self.pi.i2c_read_byte_data(self.max_handle, MAX_PART_ID) == 0x15
+
+            # Reset
+            self.pi.i2c_write_byte_data(self.max_handle, MAX_MODE_CONF, MAX_MODE_RESET_F)
             # Enable temperature ready flag
             self.pi.i2c_write_byte_data(self.max_handle, MAX_INT_EN_2, MAX_DIE_TEMP_RDY_F)
+            # Enable SpO2 mode
+            self.pi.i2c_write_byte_data(self.max_handle, MAX_MODE_CONF, MAX_MODE_SPO2_F)
+            # Use max ADC range, 400 samples per second, max pulse width
+            self.pi.i2c_write_byte_data(self.max_handle, MAX_SPO2_CONF, 0b11 << 5 | 0b011 << 2 | 0b11)
+            # Set LED pulse amplitude
+            self.pi.i2c_write_byte_data(self.max_handle, MAX_LED1_PA, 0x80)
+            self.pi.i2c_write_byte_data(self.max_handle, MAX_LED2_PA, 0x80)
+            # Perform sample averaging (8), allow FIFO rollover
+            self.pi.i2c_write_byte_data(self.max_handle, MAX_FIFO_CONF, 0b011 << 5 | MAX_FIFO_ROLLOVER_EN_F)
             # Reset FIFO
             self.pi.i2c_zip(self.max_handle, [Z_WRITE, 4, MAX_FIFO_WR_PTR, 0, 0, 0, Z_END])
             print(" OK")
 
     def select_sensor(self, num):
         """Switch communication over I2C to the given sensor number, 0 or 1."""
-        if num != 0 and num != 1:
+        if num < 0 or num >= self.NUM_SENSORS:
             raise ValueError(f"Invalid sensor number {num}")
         if num == self.current_sensor_num:
             return
@@ -83,8 +104,42 @@ class HeartRateManager:
             return -1
         return int(data[0]) + (int(data[1]) * 0.0625)
 
+    def read_hr(self, sensor_num):
+        self.select_sensor(sensor_num)
+
+        # Get number of samples to read
+        wr_ptr = self.pi.i2c_read_byte_data(self.max_handle, MAX_FIFO_WR_PTR)
+        rd_ptr = self.pi.i2c_read_byte_data(self.max_handle, MAX_FIFO_RD_PTR)
+        if wr_ptr == rd_ptr:
+            # No new data
+            return (0, [], [])
+        if wr_ptr < rd_ptr:
+            # Wrap around
+            wr_ptr += 1 << 5
+
+        num_samples = wr_ptr - rd_ptr
+        (count, data) = self.pi.i2c_zip(self.max_handle, [Z_WRITE, 1, MAX_FIFO_DATA, Z_READ, num_samples * 6, 0])
+        if count != num_samples * 6:
+            print("Unknown read_hr() data:", (count, data))
+            return (-1, [], [])
+
+        res1 = []
+        res2 = []
+        # Convert bytearray into integer values for each LED data stream
+        for i in range(num_samples):
+            res1.append(data[i * 6] << 16 | data[i * 6 + 1] << 8 | data[i * 6 + 2])
+            res2.append(data[i * 6 + 3] << 16 | data[i * 6 + 4] << 8 | data[i * 6 + 5])
+        return (num_samples, res1, res2)
+
     def stop(self):
-        """Close all GPIO resources."""
-        self.pi.i2c_close(self.max_handle)
-        self.pi.i2c_close(self.tca_handle)
+        """Put sensors into power-save mode and close all GPIO resources."""
+        for i in range(self.NUM_SENSORS):
+            self.select_sensor(i)
+            # Enter power-save mode
+            self.pi.i2c_write_byte_data(self.max_handle, MAX_MODE_CONF, MAX_MODE_SHDN_F)
+        try:
+            self.pi.i2c_close(self.max_handle)
+            self.pi.i2c_close(self.tca_handle)
+        except pigpio.error:
+            pass
         self.pi.stop()
