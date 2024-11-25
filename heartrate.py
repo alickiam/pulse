@@ -57,7 +57,11 @@ class HeartRateManager:
         for i in range(self.NUM_SENSORS):
             print(f"Setting up sensor {i}...", end="")
             self.select_sensor(i)
-            assert self.pi.i2c_read_byte_data(self.max_handle, MAX_PART_ID) == 0x15
+            try:
+                if self.pi.i2c_read_byte_data(self.max_handle, MAX_PART_ID) != 0x15:
+                    continue
+            except pigpio.error:
+                continue
 
             # Reset
             self.pi.i2c_write_byte_data(self.max_handle, MAX_MODE_CONF, MAX_MODE_RESET_F)
@@ -143,3 +147,71 @@ class HeartRateManager:
         except pigpio.error:
             pass
         self.pi.stop()
+
+# Optical heart rate detection
+# This class is an adaptation of code from SparkFun Electronics
+# https://github.com/sparkfun/SparkFun_MAX3010x_Sensor_Library/blob/72d5308df500ae1a64cc9d63e950c68c96dc78d5/src/heartRate.cpp
+class BeatFinder:
+    FIR_COEFFS = (172, 321, 579, 927, 1360, 1858, 2390, 2916, 3391, 3768, 4012, 4096)
+
+    def __init__(self):
+        self.ir_min = -20
+        self.ir_max = 20
+
+        self.ir_signal_cur = 0
+        self.ir_signal_prev = 0
+        self.ir_signal_min = 0
+        self.ir_signal_max = 0
+        self.ir_avg = 0
+        self.ir_avg_reg = 0
+
+        self.pos_edge = False
+        self.neg_edge = False
+
+        self.buffer = [0] * 32
+        self.offset = 0
+
+    def check_for_beat(self, sample):
+        """Return True if the given sample, when examined with previously supplied samples, describes a heartbeat."""
+        beat_found = False
+
+        self.ir_signal_prev = self.ir_signal_cur
+
+        # Estimate average DC
+        self.ir_avg_reg += ((sample << 15) - self.ir_avg_reg) >> 4
+        self.ir_avg = self.ir_avg_reg >> 15
+
+        # Apply low pass FIR filter
+        self.buffer[self.offset] = sample - self.ir_avg
+        self.ir_signal_cur = self.FIR_COEFFS[11] * self.buffer[(self.offset - 11) & 0x1f]
+        for i in range(11):
+            self.ir_signal_cur += self.FIR_COEFFS[i] * (self.buffer[(self.offset - i) & 0x1f] + self.buffer[(self.offset - 22 + i) & 0x1f])
+        self.offset += 1
+        self.offset %= 32
+        self.ir_signal_cur >>= 15
+
+        # Detect positive zero-crossing (rising edge)
+        if self.ir_signal_prev < 0 and self.ir_signal_cur >= 0:
+            self.pos_edge = True
+            self.neg_edge = False
+            self.ir_signal_max = 0
+
+        # Detect negative zero-crossing (falling edge)
+        if self.ir_signal_prev > 0 and self.ir_signal_cur <= 0:
+            self.ir_min = self.ir_signal_min
+            self.ir_max = self.ir_signal_max
+            self.pos_edge = False
+            self.neg_edge = True
+            self.ir_signal_min = 0
+            if self.ir_max - self.ir_min > 20 and self.ir_max - self.ir_min < 1000:
+                beat_found = True
+
+        # Find max value in positive cycle
+        if self.pos_edge and self.ir_signal_cur > self.ir_signal_prev:
+            self.ir_signal_max = self.ir_signal_cur
+
+        # Find min value in negative cycle
+        if self.neg_edge and self.ir_signal_cur < self.ir_signal_prev:
+            self.ir_signal_min = self.ir_signal_cur
+
+        return beat_found

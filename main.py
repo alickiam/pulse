@@ -1,4 +1,4 @@
-from heartrate import HeartRateManager
+from heartrate import HeartRateManager, BeatFinder
 import pigpio
 import matplotlib.pyplot as plt
 import time
@@ -25,6 +25,9 @@ for i in range(HeartRateManager.NUM_SENSORS):
     (lines[i][1],) = axs[i][1].plot(x, ys[i][1], "-b")
 fig.tight_layout()
 
+beat_lines = [[] for i in range(HeartRateManager.NUM_SENSORS)]
+beat_finders = [BeatFinder()] * HeartRateManager.NUM_SENSORS
+
 def run():
     global x, c
     hr = HeartRateManager()
@@ -44,6 +47,11 @@ def run():
                     x.append(c / 50)
                     ys[sensor_num][0].append(data1[i])
                     ys[sensor_num][1].append(data2[i])
+
+                    # Add heartbeat detection lines
+                    if beat_finders[sensor_num].check_for_beat(data2[i]):
+                        beat_lines[sensor_num].append(axs[sensor_num][1].axvline(c / 50, color="black"))
+
                     c += 1
 
                 # Prune old data
@@ -51,6 +59,11 @@ def run():
                     x = x[-2 * 50:]
                     ys[sensor_num][0] = ys[sensor_num][0][-2 * 50:]
                     ys[sensor_num][1] = ys[sensor_num][1][-2 * 50:]
+                # Prune old heartbeat lines
+                for line in beat_lines[sensor_num]:
+                    if line.get_xdata()[0] < c / 50 - 2:
+                        line.remove()
+                        beat_lines[sensor_num].remove(line)
 
                 # Update plots
                 if RED_PLOT_EN:
