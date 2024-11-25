@@ -126,7 +126,6 @@ def addUser(username, password, first_name, last_name):
         ;
     """)
     CONNECTION.commit()
-    
 
 
 def getScores(id):
@@ -156,6 +155,17 @@ def getPulse(id):
     pulses = CURSOR.fetchall()
     return pulses
 
+def getResults(id):
+    CURSOR.execute("""
+        SELECT
+            *
+        FROM
+            results
+        WHERE id = %s;
+    ;""", (id,))
+    results = CURSOR.fetchall()
+    return results
+
 def updateMatch(match_status, id): 
     CURSOR.execute("""
         UPDATE
@@ -165,20 +175,39 @@ def updateMatch(match_status, id):
         WHERE
             id = %s;
     """, (match_status, id))
+    print("updated")
     CONNECTION.commit()
 
-def updateScores(rate, convo, total, id):
+def updateScores(aff, vuln, kind, other, neg, expl, rate, convo, total, id):
     CURSOR.execute("""
         UPDATE
             results
         SET
+            affection = %s,
+            vulnerability = %s,
+            kindness = %s,
+            other = %s,
+            negative = %s,
+            explanation = %s,
             rate = %s,
             convo = %s,
             total = %s
         WHERE
             id = %s;
-    """, (rate, convo, total, id))
+    """, (aff, vuln, kind, other, neg, expl, rate, convo, total, id))
+    print("updated")
     CONNECTION.commit()
+
+def updateImprovement(id, notes):
+    CURSOR.execute("""
+        UPDATE 
+            users
+        SET 
+            improvement = %s
+        WHERE 
+            users = %s
+    ;""", (notes, id))
+    CURSOR.commit()
 
 ### Processing
 
@@ -187,6 +216,12 @@ def setup():
     CURSOR.execute("""
         CREATE TABLE IF NOT EXISTS results (
             id SERIAL PRIMARY KEY,
+            affection INTEGER,
+            vulnerability INTEGER,
+            kindness INTEGER,
+            other INTEGER,
+            negative INTEGER,
+            explanation TEXT,
             rate INTEGER,
             convo INTEGER,
             total INTEGER,
@@ -208,7 +243,8 @@ def setup():
             username TEXT PRIMARY KEY,
             password TEXT,
             first_name TEXT,
-            last_name TEXT
+            last_name TEXT,
+            improvement TEXT
         );
     """)
 
@@ -267,28 +303,42 @@ def delete_all_tables():
 
 
 if __name__ == "__main__":
-
     #delete_all_tables()
+    #setup()
 
+    print(getResults(1))
+    print(getResults(2))
+    print(getResults(3))
+    
+    """
     setup()
     addUserPair("alicia", "a")
     id = getID()
     #print(id)
-    insertPulses(id, 10, 60, 60)
-    insertPulses(id, 20, 60, 60)
-    updateScores(9, 8, 4, id)
-    updateMatch(1, id)
-    print(getPulse(id))
+    #insertPulses(id, 10, 60, 60)
+    #insertPulses(id, 20, 60, 60)
+    updateScores(1, 1, 1, 1, 9, " ", 8, 4, 6, id)
+    #updateMatch(70, id)
+    #print(getPulse(id))
     print(getScores(id))
+
+
     print(getUnmatchedIDs)
-    addUserPair("cat", "og")
+    addUserPair("cat", "dog")
     id = getID()
     #print(id)
-    insertPulses(id, 0, 0, 0)
-    insertPulses(id, 20, 60, 60)
-    updateScores(9, 8, 4, id)
-    updateMatch(1, id)
-    print(getPulse(id))
+    #insertPulses(id, 0, 0, 0)
+    #insertPulses(id, 20, 60, 60)
+    updateScores(10, 5, 6, 6, 9, " ", 8, 4, 5, id)
+    #updateMatch(1, id)
+    #print(getPulse(id))
     print(getScores(id))
     print(getUnmatchedIDs)
-    print(getAllIDs) 
+    print(getAllIDs)
+
+    addUserPair("Alicia", "Shivani")
+    id = getID()
+    updateScores(10, 5, 6, 6, 9, " ", 8, 4, 5, id)
+    
+
+    ## delete heartrate table"""
