@@ -8,28 +8,32 @@ import traceback
 RED_PLOT_EN = False
 # Enable drawing IR LED data
 SPO2_PLOT_EN = True
+# Enable drawing heartbeat detection data
+BEAT_PLOT_EN = False
 
-x = []
-c = 0
-ys = [[[], []] for i in range(HeartRateManager.NUM_SENSORS)]
-axs = [[None, None] for i in range(HeartRateManager.NUM_SENSORS)]
-lines = [[None, None] for i in range(HeartRateManager.NUM_SENSORS)]
+xs = [[] for i in range(HeartRateManager.NUM_SENSORS)]
+cs = [0 for i in range(HeartRateManager.NUM_SENSORS)]
+ys = [[[], [], []] for i in range(HeartRateManager.NUM_SENSORS)]
+axs = [[None, None, None] for i in range(HeartRateManager.NUM_SENSORS)]
+lines = [[None, None, None] for i in range(HeartRateManager.NUM_SENSORS)]
 (fig, a) = plt.subplots(1, HeartRateManager.NUM_SENSORS)
 for i in range(HeartRateManager.NUM_SENSORS):
     axs[i][0] = a[i]
     axs[i][0].set_xlabel("time (s)")
     axs[i][0].set_ylabel("red")
-    (lines[i][0],) = axs[i][0].plot(x, ys[i][0], "-r")
+    (lines[i][0],) = axs[i][0].plot(xs[i], ys[i][0], "-r")
     axs[i][1] = axs[i][0].twinx()
     axs[i][1].set_ylabel("SpO2")
-    (lines[i][1],) = axs[i][1].plot(x, ys[i][1], "-b")
+    (lines[i][1],) = axs[i][1].plot(xs[i], ys[i][1], "-b")
+    axs[i][2] = axs[i][0].twinx()
+    axs[i][2].set_ylabel("beat")
+    (lines[i][2],) = axs[i][2].plot(xs[i], ys[i][2], "-g")
 fig.tight_layout()
 
 beat_lines = [[] for i in range(HeartRateManager.NUM_SENSORS)]
-beat_finders = [BeatFinder()] * HeartRateManager.NUM_SENSORS
+beat_finders = [BeatFinder() for i in range(HeartRateManager.NUM_SENSORS)]
 
 def run():
-    global x, c
     hr = HeartRateManager()
     try:
         while True:
@@ -44,38 +48,40 @@ def run():
 
                 # Update lists
                 for i in range(count):
-                    x.append(c / 50)
+                    xs[sensor_num].append(cs[sensor_num] / 50)
                     ys[sensor_num][0].append(data1[i])
                     ys[sensor_num][1].append(data2[i])
 
                     # Add heartbeat detection lines
                     if beat_finders[sensor_num].check_for_beat(data2[i]):
-                        beat_lines[sensor_num].append(axs[sensor_num][1].axvline(c / 50, color="black"))
+                        beat_lines[sensor_num].append(axs[sensor_num][1].axvline(cs[sensor_num] / 50, color="black"))
+                    ys[sensor_num][2].append(beat_finders[sensor_num].get_cur())
 
-                    c += 1
+                    cs[sensor_num] += 1
 
                 # Prune old data
-                if len(x) > 2 * 50:
-                    x = x[-2 * 50:]
+                if len(xs[sensor_num]) > 2 * 50:
+                    xs[sensor_num] = xs[sensor_num][-2 * 50:]
                     ys[sensor_num][0] = ys[sensor_num][0][-2 * 50:]
                     ys[sensor_num][1] = ys[sensor_num][1][-2 * 50:]
+                    ys[sensor_num][2] = ys[sensor_num][2][-2 * 50:]
                 # Prune old heartbeat lines
                 for line in beat_lines[sensor_num]:
-                    if line.get_xdata()[0] < c / 50 - 2:
+                    if line.get_xdata()[0] < cs[sensor_num] / 50 - 2:
                         line.remove()
                         beat_lines[sensor_num].remove(line)
 
                 # Update plots
                 if RED_PLOT_EN:
-                    lines[sensor_num][0].set_xdata(x)
-                    lines[sensor_num][0].set_ydata(ys[sensor_num][0])
+                    lines[sensor_num][0].set_data(xs[sensor_num], ys[sensor_num][0])
                 if SPO2_PLOT_EN:
-                    lines[sensor_num][1].set_xdata(x)
-                    lines[sensor_num][1].set_ydata(ys[sensor_num][1])
-                axs[sensor_num][0].relim()
-                axs[sensor_num][0].autoscale_view()
-                axs[sensor_num][1].relim()
-                axs[sensor_num][1].autoscale_view()
+                    lines[sensor_num][1].set_data(xs[sensor_num], ys[sensor_num][1])
+                if BEAT_PLOT_EN:
+                    lines[sensor_num][2].set_data(xs[sensor_num], ys[sensor_num][2])
+
+                for ax in axs[sensor_num]:
+                    ax.relim()
+                    ax.autoscale_view()
             plt.pause(0.01)
     except KeyboardInterrupt:
         print("Trying to clean up...", end="")

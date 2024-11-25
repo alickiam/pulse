@@ -57,11 +57,7 @@ class HeartRateManager:
         for i in range(self.NUM_SENSORS):
             print(f"Setting up sensor {i}...", end="")
             self.select_sensor(i)
-            try:
-                if self.pi.i2c_read_byte_data(self.max_handle, MAX_PART_ID) != 0x15:
-                    continue
-            except pigpio.error:
-                continue
+            assert self.pi.i2c_read_byte_data(self.max_handle, MAX_PART_ID) == 0x15
 
             # Reset
             self.pi.i2c_write_byte_data(self.max_handle, MAX_MODE_CONF, MAX_MODE_RESET_F)
@@ -215,3 +211,7 @@ class BeatFinder:
             self.ir_signal_min = self.ir_signal_cur
 
         return beat_found
+
+    def get_cur(self):
+        """Return the current signal value calculated by this BeatFinder."""
+        return self.ir_signal_cur
