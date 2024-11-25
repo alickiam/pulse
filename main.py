@@ -9,4 +9,4 @@ if __name__ == "__main__":
 
     print("\n\n\nTips\n")
     result = ask_advice([convo])
-    print(result)
+    print(result.explanation)

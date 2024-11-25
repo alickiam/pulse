@@ -1,6 +1,9 @@
 from openai import OpenAI
 import os
 from pydantic import BaseModel
+from sklearn.preprocessing import MinMaxScaler
+import numpy as np
+import math
 
 class Compatibility(BaseModel):
     affection: int
@@ -38,3 +41,28 @@ def ask_advice(conversations):
     for i in conversations:
         prompt += "\n\nConversation:\n" + i
     return send_prompt(prompt)
+
+# heartrate given in timestamps of heartrate
+
+# gonna use min max scaler when i have it
+def get_heartrate_score(heartrates):
+    diff = []
+    for i in range(1, len(heartrates)):
+        diff.append(heartrates[i]-heartrates[i-1])
+    rates = []
+    num_beats = 0
+    last_time = 0
+    time = 0
+    for i in diff:
+        time += i
+        num_beats = num_beats + 1
+        if (time > last_time + 5):
+            rates.append(num_beats*60/5)
+            num_beats = 0
+            last_time = time
+    print(rates)
+    rates.sort()
+    n = len(rates)
+    print(rates)
+    score = rates[math.floor(n*.9)]-rates[math.floor(n*.1)]
+    return score
