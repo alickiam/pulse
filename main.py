@@ -1,0 +1,103 @@
+from heartrate import HeartRateManager, BeatFinder
+import pigpio
+import matplotlib.pyplot as plt
+import time
+import traceback
+
+# Enable drawing red LED data
+RED_PLOT_EN = False
+# Enable drawing IR LED data
+SPO2_PLOT_EN = True
+# Enable drawing heartbeat detection data
+BEAT_PLOT_EN = False
+
+xs = [[] for i in range(HeartRateManager.NUM_SENSORS)]
+cs = [0 for i in range(HeartRateManager.NUM_SENSORS)]
+ys = [[[], [], []] for i in range(HeartRateManager.NUM_SENSORS)]
+axs = [[None, None, None] for i in range(HeartRateManager.NUM_SENSORS)]
+lines = [[None, None, None] for i in range(HeartRateManager.NUM_SENSORS)]
+(fig, a) = plt.subplots(1, HeartRateManager.NUM_SENSORS)
+for i in range(HeartRateManager.NUM_SENSORS):
+    axs[i][0] = a[i]
+    axs[i][0].set_xlabel("time (s)")
+    axs[i][0].set_ylabel("red")
+    (lines[i][0],) = axs[i][0].plot(xs[i], ys[i][0], "-r")
+    axs[i][1] = axs[i][0].twinx()
+    axs[i][1].set_ylabel("SpO2")
+    (lines[i][1],) = axs[i][1].plot(xs[i], ys[i][1], "-b")
+    axs[i][2] = axs[i][0].twinx()
+    axs[i][2].set_ylabel("beat")
+    (lines[i][2],) = axs[i][2].plot(xs[i], ys[i][2], "-g")
+fig.tight_layout()
+
+beat_lines = [[] for i in range(HeartRateManager.NUM_SENSORS)]
+beat_finders = [BeatFinder() for i in range(HeartRateManager.NUM_SENSORS)]
+
+def run():
+    hr = HeartRateManager()
+    try:
+        while True:
+            for sensor_num in range(HeartRateManager.NUM_SENSORS):
+                # Get data
+                try:
+                    (count, data1, data2) = hr.read_hr(sensor_num)
+                except pigpio.error:
+                    continue
+                if count <= 0:
+                    continue
+
+                # Update lists
+                for i in range(count):
+                    xs[sensor_num].append(cs[sensor_num] / 50)
+                    ys[sensor_num][0].append(data1[i])
+                    ys[sensor_num][1].append(data2[i])
+
+                    # Add heartbeat detection lines
+                    if beat_finders[sensor_num].check_for_beat(data2[i]):
+                        beat_lines[sensor_num].append(axs[sensor_num][1].axvline(cs[sensor_num] / 50, color="black"))
+                    ys[sensor_num][2].append(beat_finders[sensor_num].get_cur())
+
+                    cs[sensor_num] += 1
+
+                # Prune old data
+                if len(xs[sensor_num]) > 2 * 50:
+                    xs[sensor_num] = xs[sensor_num][-2 * 50:]
+                    ys[sensor_num][0] = ys[sensor_num][0][-2 * 50:]
+                    ys[sensor_num][1] = ys[sensor_num][1][-2 * 50:]
+                    ys[sensor_num][2] = ys[sensor_num][2][-2 * 50:]
+                # Prune old heartbeat lines
+                for line in beat_lines[sensor_num]:
+                    if line.get_xdata()[0] < cs[sensor_num] / 50 - 2:
+                        line.remove()
+                        beat_lines[sensor_num].remove(line)
+
+                # Update plots
+                if RED_PLOT_EN:
+                    lines[sensor_num][0].set_data(xs[sensor_num], ys[sensor_num][0])
+                if SPO2_PLOT_EN:
+                    lines[sensor_num][1].set_data(xs[sensor_num], ys[sensor_num][1])
+                if BEAT_PLOT_EN:
+                    lines[sensor_num][2].set_data(xs[sensor_num], ys[sensor_num][2])
+
+                for ax in axs[sensor_num]:
+                    ax.relim()
+                    ax.autoscale_view()
+            plt.pause(0.01)
+    except KeyboardInterrupt:
+        print("Trying to clean up...", end="")
+        while True:
+            try:
+                hr.stop()
+            except:
+                print(" failed:")
+                traceback.print_exc()
+                time.sleep(1)
+                print("Trying again...", end="")
+                continue
+            break
+        print(" done!")
+        return
+
+if __name__ == "__main__":
+    run()
+
