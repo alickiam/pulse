@@ -1,8 +1,13 @@
 from heartrate import HeartRateManager, BeatFinder
+import analyze
+import pulsedb
+import matching
+
 import pigpio
 import matplotlib.pyplot as plt
 import time
 import traceback
+from random import random
 
 # Enable drawing red LED data
 RED_PLOT_EN = False
@@ -30,6 +35,7 @@ for i in range(HeartRateManager.NUM_SENSORS):
     (lines[i][2],) = axs[i][2].plot(xs[i], ys[i][2], "-g")
 fig.tight_layout()
 
+beat_times = [[] for i in range(HeartRateManager.NUM_SENSORS)]
 beat_lines = [[] for i in range(HeartRateManager.NUM_SENSORS)]
 beat_finders = [BeatFinder() for i in range(HeartRateManager.NUM_SENSORS)]
 
@@ -54,6 +60,7 @@ def run():
 
                     # Add heartbeat detection lines
                     if beat_finders[sensor_num].check_for_beat(data2[i]):
+                        beat_times[sensor_num].append(cs[sensor_num] / 50)
                         beat_lines[sensor_num].append(axs[sensor_num][1].axvline(cs[sensor_num] / 50, color="black"))
                     ys[sensor_num][2].append(beat_finders[sensor_num].get_cur())
 
@@ -84,6 +91,21 @@ def run():
                     ax.autoscale_view()
             plt.pause(0.01)
     except KeyboardInterrupt:
+        for i in range(HeartRateManager.NUM_SENSORS):
+            score = analyze.get_heartrate_score(beat_times[i])
+            print(f"score {i}: {score}")
+        pulsedb.addUserPair(f"jim{random()}", f"pam{random()}")
+        id = pulsedb.getID()
+        convo = open("example_convo.txt", "r").read()
+        result = analyze.ask_match(convo)
+        convo_score = analyze.get_overall_conversation_score(result)
+        heart_score = min(analyze.get_heartrate_score(beat_times[0]),
+                          analyze.get_heartrate_score(beat_times[1]))
+        pulsedb.updateScores(result.affection, result.vulnerability, result.kindness,
+                             result.other, result.negative, result.explanation,
+                             heart_score, convo_score, convo_score + heart_score, id)
+        print(f"Matching results: {matching.perform_matching())}")
+
         print("Trying to clean up...", end="")
         while True:
             try:
