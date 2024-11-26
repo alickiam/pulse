@@ -40,7 +40,14 @@ beat_lines = [[] for i in range(HeartRateManager.NUM_SENSORS)]
 beat_finders = [BeatFinder() for i in range(HeartRateManager.NUM_SENSORS)]
 
 def run():
-    hr = HeartRateManager()
+    while True:
+        try:
+            hr = HeartRateManager()
+            break
+        except pigpio.error as e:
+            print(e)
+            continue
+
     try:
         while True:
             for sensor_num in range(HeartRateManager.NUM_SENSORS):
@@ -103,7 +110,7 @@ def run():
                           analyze.get_heartrate_score(beat_times[1]))
         pulsedb.updateScores(result.affection, result.vulnerability, result.kindness,
                              result.other, result.negative, result.explanation,
-                             heart_score, convo_score, convo_score + heart_score, id)
+                             heart_score, convo_score, (convo_score + heart_score) / 2, id)
         print(f"Matching results: {matching.perform_matching()}")
 
         print("Trying to clean up...", end="")
