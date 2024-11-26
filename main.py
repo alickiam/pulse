@@ -104,7 +104,7 @@ def run():
         pulsedb.updateScores(result.affection, result.vulnerability, result.kindness,
                              result.other, result.negative, result.explanation,
                              heart_score, convo_score, convo_score + heart_score, id)
-        print(f"Matching results: {matching.perform_matching())}")
+        print(f"Matching results: {matching.perform_matching()}")
 
         print("Trying to clean up...", end="")
         while True:
