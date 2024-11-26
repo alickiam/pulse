@@ -3,10 +3,7 @@ from pulsedb import updateMatch, getUnmatchedIDs, getScores
 
 # Function to calculate a compatibility percentage
 def calculate_match_percentage(score):
-    """
-    Convert total score to a compatibility percentage.
-    Example: Normalize score from 0-100, where a higher score implies better compatibility.
-    """
+   
     max_possible_score = 10  # Adjust this based on your scoring system.
     percentage = (score / max_possible_score) * 100
     return percentage
@@ -14,7 +11,6 @@ def calculate_match_percentage(score):
 # Function to determine if it's a match based on a threshold
 def is_match(percentage, threshold=50):
     """
-    Determine if a candidate is a match based on a percentage threshold.
     Default threshold is 50%.
     """
     return 1 if percentage >= threshold else 0
@@ -24,8 +20,7 @@ def perform_matching():
     """
     Perform the matching process:
     1. Fetch IDs and scores from the database.
-    2. Apply the matching algorithm.
-    3. Insert results back into the database.
+
     """
     # Fetch unmatched IDs
     ids = getUnmatchedIDs()
@@ -60,7 +55,7 @@ def perform_matching():
         updateMatch(match_percentage,user_id)
 
     print("Matching process completed.")
-    return results  # Optional: return results for debugging or testing
+    return results  # return results for debugging or testing
 
 # Execute matching algorithm
 if __name__ == "__main__":
