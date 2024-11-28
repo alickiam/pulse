@@ -60,7 +60,8 @@ def get_10_score(heartrate_score):
 def get_heartrate_score(heartrates):
     diff = []
     for i in range(1, len(heartrates)):
-        diff.append(heartrates[i]-heartrates[i-1])
+        if heartrates[i]-heartrates[i-1] < 2 and heartrates[i]-heartrates[i-1] > 0.25:
+            diff.append(heartrates[i]-heartrates[i-1])
     rates = []
     num_beats = 0
     last_time = 0
@@ -68,10 +69,10 @@ def get_heartrate_score(heartrates):
     for i in diff:
         time += i
         num_beats = num_beats + 1
-        if (time > last_time + 5):
-            rates.append((num_beats-1)*60/5)
+        if (time > last_time + 15):
+            rates.append((num_beats-1)*60/15)
             num_beats = 1
-            last_time = last_time + 5
+            last_time = last_time + 15
     print(rates)
     rates.sort()
     rates = rates[1:len(rates)-1]
