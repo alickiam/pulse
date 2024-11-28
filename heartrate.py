@@ -118,7 +118,6 @@ class HeartRateManager:
             wr_ptr += 1 << 5
 
         num_samples = wr_ptr - rd_ptr
-        print(wr_ptr, rd_ptr, num_samples, num_samples * 6)
         if num_samples > 32 or num_samples <= 0:
             # Invalid, ignore
             print("Invalid num_samples", num_samples)
@@ -204,7 +203,7 @@ class BeatFinder:
             self.pos_edge = False
             self.neg_edge = True
             self.ir_signal_min = 0
-            if self.ir_max - self.ir_min > 15 and self.ir_max - self.ir_min < 1000:
+            if self.ir_max - self.ir_min > 10 and self.ir_max - self.ir_min < 1000:
                 beat_found = True
 
         # Find max value in positive cycle
