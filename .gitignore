@@ -1,1 +1,4 @@
 __pycache__
+venv
+pulse-*.wav
+mono-pulse-*.wav

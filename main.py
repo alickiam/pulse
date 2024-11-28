@@ -7,6 +7,8 @@ import pigpio
 import matplotlib.pyplot as plt
 import time
 import traceback
+import subprocess
+import signal
 from random import random
 
 # Enable drawing red LED data
@@ -47,6 +49,10 @@ def run():
         except pigpio.error as e:
             print(e)
             continue
+
+    audio_filename = f"pulse-{time.time()}.wav"
+    print(f"Starting recording {audio_filename}")
+    record_process = subprocess.Popen(f"exec ssh pi@pulse.local arecord -D dmic_sv -c2 -r 48000 -f S32_LE -t wav -V mono -v {audio_filename}", stdout=subprocess.PIPE, shell=True)
 
     try:
         while True:
@@ -98,6 +104,16 @@ def run():
                     ax.autoscale_view()
             plt.pause(0.01)
     except KeyboardInterrupt:
+        print("\nSending SIGINT to ssh recording process")
+        record_process.send_signal(signal.SIGINT)
+        print(f"Running scp for {audio_filename}")
+        subprocess.run(["scp", f"pi@pulse.local:{audio_filename}", audio_filename])
+        print(f"Running ffmpeg")
+        subprocess.run(["ffmpeg", "-i", audio_filename, "-ac", "1", f"mono-{audio_filename}"])
+        command = input("Command (q for force quit, enter for analyze): ")
+        if command == "q":
+            return
+
         for i in range(HeartRateManager.NUM_SENSORS):
             score = analyze.get_heartrate_score(beat_times[i])
             print(f"score {i}: {score}")
