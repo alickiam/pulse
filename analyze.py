@@ -44,7 +44,19 @@ def ask_advice(conversations):
 
 # heartrate given in timestamps of heartrate
 
-# gonna use min max scaler when i have it
+example_scores = [10, 12, 14, 15, 14, 16, 14, 17, 18, 20]
+std = np.std(example_scores)
+
+def get_10_score(heartrate_score):
+    stds = (heartrate_score - np.average(example_scores))/std
+    #print(heartrate_score - np.average(example_scores))
+    #print("stds", stds)
+    stds = stds * 3
+    stds = stds + 5
+    stds = min(stds, 10)
+    stds = max(stds, 1)
+    return math.ceil(stds)
+
 def get_heartrate_score(heartrates):
     diff = []
     for i in range(1, len(heartrates)):
@@ -57,12 +69,13 @@ def get_heartrate_score(heartrates):
         time += i
         num_beats = num_beats + 1
         if (time > last_time + 5):
-            rates.append(num_beats*60/5)
-            num_beats = 0
-            last_time = time
+            rates.append((num_beats-1)*60/5)
+            num_beats = 1
+            last_time = last_time + 5
     print(rates)
     rates.sort()
+    rates = rates[1:len(rates)-1]
     n = len(rates)
     print(rates)
     score = rates[math.floor(n*.9)]-rates[math.floor(n*.1)]
-    return score
+    return get_10_score(score)
