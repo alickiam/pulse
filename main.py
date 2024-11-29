@@ -1,4 +1,5 @@
 from heartrate import HeartRateManager, BeatFinder
+from transcribe import transcribe_audio_with_speaker_diarization
 import analyze
 import pulsedb
 import matching
@@ -51,7 +52,7 @@ def run():
             continue
 
     subprocess.run(["mkdir", "record"])
-    filename_time = time.time()
+    filename_time = int(time.time())
     stereo_filename = f"record/stereo-{filename_time}.wav"
     print(f"Starting recording {stereo_filename}")
     record_process = subprocess.Popen(f"exec ssh pi@pulse.local arecord -D dmic_sv -c2 -r 48000 -f S32_LE -t wav -V mono -v {stereo_filename}", stdout=subprocess.PIPE, shell=True)
@@ -110,19 +111,26 @@ def run():
         record_process.send_signal(signal.SIGINT)
         print(f"Running scp for {stereo_filename}")
         subprocess.run(["scp", f"pi@pulse.local:{stereo_filename}", stereo_filename])
+        mono_filename = f"record/mono-{filename_time}.wav"
         print(f"Running ffmpeg")
-        subprocess.run(["ffmpeg", "-i", stereo_filename, "-ac", "1", f"record/mono-{filename_time}.wav"])
+        subprocess.run(["ffmpeg", "-i", stereo_filename, "-ac", "1", mono_filename])
+        for i in range(HeartRateManager.NUM_SENSORS):
+            print("beat_times[{i}]:", beat_times[i])
         command = input("Command (q for force quit, enter for analyze): ")
         if command == "q":
             return
+
+        transcription_filename = f"record/{filename_time}.txt"
+        print("Calling transcribe...")
+        transcribe_audio_with_speaker_diarization(mono_filename, transcription_filename)
 
         print("Analyzing...")
         for i in range(HeartRateManager.NUM_SENSORS):
             score = analyze.get_heartrate_score(beat_times[i])
             print(f"score {i}: {score}")
-        pulsedb.addUserPair(f"jim{random()}", f"pam{random()}")
+        pulsedb.addUserPair("Alicia", "Darren")
         id = pulsedb.getID()
-        convo = open("example_convo.txt", "r").read()
+        convo = open(transcription_filename, "r").read()
         result = analyze.ask_match(convo)
         convo_score = analyze.get_overall_conversation_score(result)
         heart_score = min(analyze.get_heartrate_score(beat_times[0]),
@@ -131,7 +139,7 @@ def run():
                              result.other, result.negative, result.explanation,
                              heart_score, convo_score, (convo_score + heart_score) / 2, id)
         print(f"Matching results: {matching.perform_matching()}")
-
+    finally:
         print("Trying to clean up...", end="")
         while True:
             try:

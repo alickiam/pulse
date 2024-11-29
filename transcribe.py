@@ -1,16 +1,20 @@
 import os
 from google.cloud import speech_v1p1beta1 as speech
+from google.cloud import storage
 
 def transcribe_audio_with_speaker_diarization(audio_path, output_file):
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "./se101finalproject-1a2f5a3e9286.json"
 
-    client = speech.SpeechClient()
+    storage_client = storage.Client()
     print("Google Cloud credentials loaded successfully.")
+    bucket_name = "se101-f2024-pulse-record"
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(audio_path)
+    blob.upload_from_filename(audio_path)
+    print(f"File {audio_path} uploaded to storage")
 
-    with open(audio_path, "rb") as audio_file:
-        content = audio_file.read()
-
-    audio = speech.RecognitionAudio(content=content)
+    client = speech.SpeechClient()
+    audio = speech.RecognitionAudio(uri=f"gs://{bucket_name}/{audio_path}")
 
     diarization_config = speech.SpeakerDiarizationConfig(
         enable_speaker_diarization=True,
@@ -24,16 +28,16 @@ def transcribe_audio_with_speaker_diarization(audio_path, output_file):
         diarization_config=diarization_config,
     )
 
+    operation = client.long_running_recognize(config=config, audio=audio)
     print("Waiting for operation to complete...")
-    response = client.recognize(config=config, audio=audio)
+    response = operation.result(timeout=120)
 
+    print("Starting to organize the transcribed text file.")
+    conversation = []
     result = response.results[-1]
     words_info = result.alternatives[0].words
 
-    print("Starting to organize the transcribed text file.")
-    
     # Prepare a list of tuples (start_time, speaker_tag, word)
-    conversation = []
     for word_info in words_info:
         start_time = word_info.start_time.total_seconds()
         speaker_tag = word_info.speaker_tag
@@ -69,6 +73,6 @@ def transcribe_audio_with_speaker_diarization(audio_path, output_file):
     return result
 
 if __name__ == '__main__':
-    audio_path = "audio (1).wav"
-    output_file = "transcribed_conversation.txt"
+    audio_path = input("audio path: ")
+    output_file = input("output file: ")
     result = transcribe_audio_with_speaker_diarization(audio_path, output_file)
