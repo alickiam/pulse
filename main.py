@@ -50,9 +50,11 @@ def run():
             print(e)
             continue
 
-    audio_filename = f"pulse-{time.time()}.wav"
-    print(f"Starting recording {audio_filename}")
-    record_process = subprocess.Popen(f"exec ssh pi@pulse.local arecord -D dmic_sv -c2 -r 48000 -f S32_LE -t wav -V mono -v {audio_filename}", stdout=subprocess.PIPE, shell=True)
+    subprocess.run(["mkdir", "record"])
+    filename_time = time.time()
+    stereo_filename = f"record/stereo-{filename_time}.wav"
+    print(f"Starting recording {stereo_filename}")
+    record_process = subprocess.Popen(f"exec ssh pi@pulse.local arecord -D dmic_sv -c2 -r 48000 -f S32_LE -t wav -V mono -v {stereo_filename}", stdout=subprocess.PIPE, shell=True)
 
     try:
         while True:
@@ -106,14 +108,15 @@ def run():
     except KeyboardInterrupt:
         print("\nSending SIGINT to ssh recording process")
         record_process.send_signal(signal.SIGINT)
-        print(f"Running scp for {audio_filename}")
-        subprocess.run(["scp", f"pi@pulse.local:{audio_filename}", audio_filename])
+        print(f"Running scp for {stereo_filename}")
+        subprocess.run(["scp", f"pi@pulse.local:{stereo_filename}", stereo_filename])
         print(f"Running ffmpeg")
-        subprocess.run(["ffmpeg", "-i", audio_filename, "-ac", "1", f"mono-{audio_filename}"])
+        subprocess.run(["ffmpeg", "-i", stereo_filename, "-ac", "1", f"record/mono-{filename_time}.wav"])
         command = input("Command (q for force quit, enter for analyze): ")
         if command == "q":
             return
 
+        print("Analyzing...")
         for i in range(HeartRateManager.NUM_SENSORS):
             score = analyze.get_heartrate_score(beat_times[i])
             print(f"score {i}: {score}")
