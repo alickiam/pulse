@@ -1,0 +1,6 @@
+pigpio
+matplotlib
+google-cloud-speech
+openai
+scikit-learn
+psycopg2
