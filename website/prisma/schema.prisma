@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Result {
+  id            Int    @id @default(autoincrement())
+  affection     Int
+  vulnerability Int
+  kindness      Int
+  other         Int
+  negative      Int
+  explanation   String
+  rate          Int
+  convo         Int
+  total         Int
+  match_status  Int
+
+  pair   Pair @relation(fields: [pairid], references: [pairid])
+  pairid Int  @unique
+
+  @@map("results")
+}
+
+model User {
+  username    String  @id
+  password    String
+  first_name  String
+  last_name   String
+  improvement String?
+  pairs_id1   Pair[]  @relation("UserId1")
+  pairs_id2   Pair[]  @relation("UserId2")
+
+  @@map("users")
+}
+
+model Pair {
+  pairid Int     @id @default(autoincrement())
+  id1    String
+  id2    String
+  user1  User    @relation("UserId1", fields: [id1], references: [username])
+  user2  User    @relation("UserId2", fields: [id2], references: [username])
+  result Result?
+
+  @@map("pairs")
+}
