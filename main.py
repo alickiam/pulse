@@ -115,7 +115,7 @@ def run():
         print(f"Running ffmpeg")
         subprocess.run(["ffmpeg", "-i", stereo_filename, "-ac", "1", mono_filename])
         for i in range(HeartRateManager.NUM_SENSORS):
-            print("beat_times[{i}]:", beat_times[i])
+            print(f"beat_times[{i}]:", beat_times[i])
         command = input("Command (q for force quit, enter for analyze): ")
         if command == "q":
             return
