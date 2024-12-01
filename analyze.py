@@ -44,7 +44,7 @@ def ask_advice(conversations):
 
 # heartrate given in timestamps of heartrate
 
-example_scores = [8, 8, 44, 8, 8, 32, 12]
+example_scores = [18, 30, 56, 22, 36, 64, 58]
 std = np.std(example_scores)
 
 def get_10_score(heartrate_score):
@@ -57,22 +57,38 @@ def get_10_score(heartrate_score):
     stds = max(stds, 1)
     return math.ceil(stds)
 
+def get_beats_after(time, diff):
+    t = 0
+    ans = 0
+    for i in diff:
+        t += i
+        if (time + 30 > t and time < t):
+            ans += 1
+    return ans
+
 def get_rates(heartrates):
     diff = []
     for i in range(1, len(heartrates)):
         if heartrates[i]-heartrates[i-1] < 2 and heartrates[i]-heartrates[i-1] > 0.25:
             diff.append(heartrates[i]-heartrates[i-1])
     rates = []
-    num_beats = 0
-    last_time = 0
-    time = 0
-    for i in diff:
-        time += i
-        num_beats = num_beats + 1
-        if (time > last_time + 15):
-            rates.append((num_beats-1)*60/15)
-            num_beats = 1
-            last_time = last_time + 15
+
+    for i in range(0, 100000, 5):
+        x = get_beats_after(i, diff)
+        if x == 0:
+            break
+        rates.append(x/0.5)
+    # num_beats = 0
+    # last_time = 0
+    # time = 0
+    # for i in diff:
+    #     time += i
+    #     num_beats = num_beats + 1
+    #     if (time > last_time + 15):
+    #         rates.append((num_beats-1)*60/15)
+    #         num_beats = 1
+    #         last_time = last_time + 15
+
     return rates
 
 def get_absolute_score(heartrates):
@@ -80,7 +96,7 @@ def get_absolute_score(heartrates):
     rates.sort()
     rates = rates[1:len(rates)-1]
     n = len(rates)
-    print(rates)
+    #print(rates)
     if (len(rates) == 0):
         return -10000000 #not enough time
     score = rates[math.floor(n*.9)]-rates[math.floor(n*.1)]

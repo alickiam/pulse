@@ -25,6 +25,6 @@ runs = (
 
 if __name__ == "__main__":
     for i, run in enumerate(runs):
-        print(get_rates(run))
+        #print(get_rates(run))
         #print(f"abs score {i}: {get_absolute_score(run)}")
         print(f"score {i}: {get_heartrate_score(run)}")
