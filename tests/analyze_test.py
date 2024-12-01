@@ -1,6 +1,6 @@
 import os, sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from analyze import get_heartrate_score
+from analyze import get_heartrate_score, get_rates, get_absolute_score
 
 runs = (
     # Regular resting
@@ -25,4 +25,6 @@ runs = (
 
 if __name__ == "__main__":
     for i, run in enumerate(runs):
+        print(get_rates(run))
+        #print(f"abs score {i}: {get_absolute_score(run)}")
         print(f"score {i}: {get_heartrate_score(run)}")
