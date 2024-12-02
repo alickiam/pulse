@@ -15,7 +15,7 @@ function Home() {
   return (
     <div className={`${poppins.className} min-h-screen p-10 gap-16 bg-gray-900`}>
       <div className="flex justify-between items-center">
-        <h3 className="text-2xl font-bold text-left text-white">Hello, {user?.firstName}</h3>
+        <h3 className="text-2xl font-bold text-left text-white">Hello, {user?.username}</h3>
         <Button variant="outline" onClick={logout}>
           Logout
         </Button>
