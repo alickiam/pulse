@@ -1,9 +1,10 @@
 import psycopg2
 import os
+from dotenv import load_dotenv
 
 # Establishing the connection
-#DATABASE_URL = os.environ['DATABASE_URL']
-DATABASE_URL = 'postgres://u2e4lm29e9vg22:pe128f7d51bf616d17ce0118375054f0bbc0bed5031eb0a9553f2851ec0e93d64@c5hilnj7pn10vb.cluster-czrs8kj4isg7.us-east-1.rds.amazonaws.com:5432/de5gorvsap72df'
+load_dotenv()
+DATABASE_URL = os.environ['DATABASE_URL']
 CONNECTION = psycopg2.connect(DATABASE_URL, sslmode='require')
 CURSOR = CONNECTION.cursor()
 
